@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #123D32;
+  --color-primary-50: #eef6f3;
+  --color-primary-100: #d6ebe3;
+  --color-primary-200: #afd5c7;
+  --color-primary-700: #185244;
+  --color-primary-800: #123D32;
+  --color-primary-900: #0a251e;
+  
+  --color-gold: #D5B779;
+  --color-gold-light: #F5E8C7;
+  --color-gold-dark: #B38F4D;
+  
+  --color-ivory: #F7F4EB;
+  --color-ivory-dark: #ECE6D5;
+  
+  --font-sans: 'Cairo', 'Tajawal', system-ui, -apple-system, sans-serif;
+  --font-quran: 'Amiri', 'Traditional Arabic', serif;
+}
+
+:root {
+  --app-bg: #F7F4EB;
+  --app-card: #FFFFFF;
+  --app-border: #E8E2D2;
+  --app-text: #1E293B;
+  --app-primary: #123D32;
+  --app-accent: #D5B779;
+}
+
+.dark {
+  --app-bg: #0C1E19;
+  --app-card: #132E27;
+  --app-border: #1E443A;
+  --app-text: #F1EFEA;
+  --app-primary: #1C4D40;
+  --app-accent: #E2C98D;
+}
+
+body {
+  font-family: 'Cairo', 'Tajawal', system-ui, -apple-system, sans-serif;
+  background-color: var(--app-bg);
+  color: var(--app-text);
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* Quranic verse styling */
+.font-quran {
+  font-family: 'Amiri', 'Traditional Arabic', serif;
+  line-height: 2.2;
+}
+
+/* Islamic arabesque subtle pattern */
+.islamic-pattern {
+  background-image: radial-gradient(#D5B779 0.75px, transparent 0.75px), radial-gradient(#D5B779 0.75px, #123D32 0.75px);
+  background-size: 30px 30px;
+  background-position: 0 0, 15px 15px;
+  background-color: #123D32;
+}
+
+.islamic-pattern-light {
+  background-image: radial-gradient(#D5B779 0.6px, transparent 0.6px);
+  background-size: 24px 24px;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(213, 183, 121, 0.4);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(213, 183, 121, 0.7);
+}
+
+/* iOS safe-area-inset padding for bottom bar */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}

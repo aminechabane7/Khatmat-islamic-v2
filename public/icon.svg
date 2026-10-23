@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#184e40" />
+      <stop offset="100%" stop-color="#0c2922" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F3E5AB" />
+      <stop offset="50%" stop-color="#D5B779" />
+      <stop offset="100%" stop-color="#B38F4D" />
+    </linearGradient>
+    <linearGradient id="pageGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FBF9F3" />
+      <stop offset="100%" stop-color="#EDE6D4" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+
+  <!-- Outer Islamic Border Frame -->
+  <rect x="28" y="28" width="456" height="456" rx="92" fill="none" stroke="url(#goldGrad)" stroke-width="3" stroke-opacity="0.4" stroke-dasharray="12 6" />
+
+  <!-- Dome / Arch outline -->
+  <path d="M 256 95 C 290 145 360 185 360 270 C 360 330 310 380 256 380 C 202 380 152 330 152 270 C 152 185 222 145 256 95 Z" 
+        fill="none" stroke="url(#goldGrad)" stroke-width="4" stroke-opacity="0.3" />
+
+  <!-- Golden 8-pointed Islamic Star at Apex -->
+  <g transform="translate(256, 120) scale(0.7)">
+    <polygon points="0,-25 7,-7 25,0 7,7 0,25 -7,7 -25,0 -7,-7" fill="url(#goldGrad)" filter="url(#shadow)" />
+    <polygon points="0,-25 7,-7 25,0 7,7 0,25 -7,7 -25,0 -7,-7" fill="url(#goldGrad)" transform="rotate(45)" />
+    <circle cx="0" cy="0" r="4" fill="#123D32" />
+  </g>
+
+  <!-- Holy Book (Mushaf) Icon in Center -->
+  <g filter="url(#shadow)" transform="translate(0, 15)">
+    <!-- Book Stand / Rihal -->
+    <path d="M 175 390 L 256 325 L 337 390 L 350 375 L 270 310 L 256 318 L 242 310 L 162 375 Z" fill="url(#goldGrad)" />
+    <path d="M 210 395 L 256 350 L 302 395" fill="none" stroke="url(#goldGrad)" stroke-width="4" stroke-linecap="round" />
+
+    <!-- Left Page -->
+    <path d="M 256 305 C 235 292 190 280 145 288 C 137 289 130 282 130 274 L 130 185 C 130 178 136 172 143 171 C 190 162 235 178 256 195 Z" 
+          fill="url(#pageGrad)" stroke="url(#goldGrad)" stroke-width="3" />
+    
+    <!-- Right Page -->
+    <path d="M 256 305 C 277 292 322 280 367 288 C 375 289 382 282 382 274 L 382 185 C 382 178 376 172 369 171 C 322 162 277 178 256 195 Z" 
+          fill="url(#pageGrad)" stroke="url(#goldGrad)" stroke-width="3" />
+
+    <!-- Center Spine Spine Ribbon Bookmark -->
+    <path d="M 256 190 L 256 325 L 265 315 L 274 325 L 274 210" fill="#B38F4D" />
+
+    <!-- Quranic Calligraphic Marks / Lines on Pages -->
+    <!-- Left Page Lines -->
+    <line x1="155" y1="200" x2="235" y2="210" stroke="#123D32" stroke-width="3" stroke-linecap="round" stroke-opacity="0.75" />
+    <line x1="155" y1="220" x2="235" y2="228" stroke="#123D32" stroke-width="3" stroke-linecap="round" stroke-opacity="0.75" />
+    <line x1="155" y1="240" x2="235" y2="246" stroke="#123D32" stroke-width="3" stroke-linecap="round" stroke-opacity="0.75" />
+    <line x1="165" y1="260" x2="225" y2="264" stroke="#D5B779" stroke-width="2.5" stroke-linecap="round" />
+
+    <!-- Right Page Lines -->
+    <line x1="277" y1="210" x2="357" y2="200" stroke="#123D32" stroke-width="3" stroke-linecap="round" stroke-opacity="0.75" />
+    <line x1="277" y1="228" x2="357" y2="220" stroke="#123D32" stroke-width="3" stroke-linecap="round" stroke-opacity="0.75" />
+    <line x1="277" y1="246" x2="357" y2="240" stroke="#123D32" stroke-width="3" stroke-linecap="round" stroke-opacity="0.75" />
+    <line x1="287" y1="264" x2="347" y2="260" stroke="#D5B779" stroke-width="2.5" stroke-linecap="round" />
+  </g>
+
+  <!-- App Title Typography in Arabic below -->
+  <text x="256" y="440" font-family="'Cairo', 'Tajawal', sans-serif" font-size="34" font-weight="bold" fill="url(#goldGrad)" text-anchor="middle" letter-spacing="1">خَـتْمَـتِي</text>
+  <text x="256" y="468" font-family="'Cairo', sans-serif" font-size="14" font-weight="500" fill="#EDE6D4" text-anchor="middle" opacity="0.8" letter-spacing="4">KHATMATI</text>
+</svg>

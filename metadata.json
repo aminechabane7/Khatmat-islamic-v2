@@ -1,0 +1,6 @@
+{
+  "name": "Khatmati | ختمتي",
+  "description": "تطبيق إسلامي تقدمي متكامل لتتبع ختمة القرآن الكريم، تلاوة السور، الأذكار اليومية الموثقة، ومواقيت الصلاة الدقيقة بتصميم إسلامي راقٍ.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
