@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../context/AppContext';
 import { ALL_SURAHS, TOTAL_JUZ, TOTAL_PAGES } from '../data/surahs';
+import { getLocalDateKey } from '../services/storageService';
 
 export const KhatmaPage: React.FC = () => {
   const navigate = useNavigate();
@@ -30,7 +31,6 @@ export const KhatmaPage: React.FC = () => {
   } = useAppStore();
 
   const [activeView, setActiveView] = useState<'overview' | 'juz' | 'pages'>('overview');
-  const [selectedJuz, setSelectedJuz] = useState<number>(1);
   const [showResetModal, setShowResetModal] = useState(false);
 
   // Goal calculation
@@ -39,10 +39,11 @@ export const KhatmaPage: React.FC = () => {
   const remainingPages = Math.max(0, TOTAL_PAGES - completedCount);
   const estimatedDaysLeft = Math.ceil(remainingPages / (khatma.dailyGoalPages || 4));
 
-  // Today's reading
-  const todayKey = new Date().toISOString().split('T')[0];
+  // Today's reading in local calendar date
+  const todayKey = getLocalDateKey();
   const pagesReadToday = khatma.dailyLogs[todayKey] || 0;
   const isTodayGoalReached = pagesReadToday >= khatma.dailyGoalPages;
+  const isKhatmaComplete = completedCount >= TOTAL_PAGES;
 
   // Current Surah details
   const currentSurah =
@@ -50,28 +51,18 @@ export const KhatmaPage: React.FC = () => {
 
   const handleFinishTodayPortion = () => {
     triggerHaptic([40, 50, 60]);
-    // Celebrate with confetti
     confetti({
-      particleCount: 80,
-      spread: 70,
+      particleCount: 90,
+      spread: 75,
       origin: { y: 0.6 },
       colors: ['#D5B779', '#123D32', '#185244', '#F7F4EB'],
     });
 
-    const newPagesRead = pagesReadToday + khatma.dailyGoalPages;
     const targetPage = Math.min(604, (khatma.currentPageNumber || 1) + khatma.dailyGoalPages);
     markPagesUpTo(targetPage);
-
-    updateKhatma({
-      dailyLogs: {
-        ...khatma.dailyLogs,
-        [todayKey]: newPagesRead,
-      },
-    });
   };
 
   const handleQuickPageJump = (page: number) => {
-    // Find which Surah this page belongs to
     const targetSurah = [...ALL_SURAHS].reverse().find((s) => s.pageStart <= page) || ALL_SURAHS[0];
     triggerHaptic(20);
     navigate(`/quran?surah=${targetSurah.number}`);
@@ -79,6 +70,29 @@ export const KhatmaPage: React.FC = () => {
 
   return (
     <div className="space-y-5 pb-12 animate-in fade-in duration-200">
+      {/* Khatma Completed Milestone Banner */}
+      {isKhatmaComplete && (
+        <div className="bg-gradient-to-l from-amber-500 to-[#D5B779] text-[#123D32] p-5 rounded-3xl shadow-lg border border-amber-300 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-white/40 rounded-2xl">
+              <Trophy className="w-6 h-6 text-[#123D32]" />
+            </div>
+            <div>
+              <h2 className="font-bold text-base">مبارك! أتممت ختم القرآن الكريم كاملاً</h2>
+              <p className="text-xs text-[#123D32]/80">
+                تقبل الله طاعتكم وكتب لكم بكل حرف حسنة إلى عشر أمثالها.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowResetModal(true)}
+            className="bg-[#123D32] text-[#F7F4EB] px-4 py-2 rounded-xl text-xs font-bold shadow hover:bg-[#185244] transition whitespace-nowrap"
+          >
+            بدء ختمة جديدة
+          </button>
+        </div>
+      )}
+
       {/* Hero Stats Card */}
       <div className="bg-gradient-to-br from-[#123D32] via-[#16483c] to-[#0a251e] text-[#F7F4EB] rounded-3xl p-6 shadow-xl border border-[#D5B779]/30 relative overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -152,7 +166,7 @@ export const KhatmaPage: React.FC = () => {
             }`}
           >
             <CheckCircle2 className="w-4 h-4 text-[#D5B779]" />
-            <span>{isTodayGoalReached ? 'أتممت ورد اليوم بنجاح!' : 'تسجيل إتمام ورد اليوم (+4 ص)'}</span>
+            <span>{isTodayGoalReached ? 'أتممت ورد اليوم بنجاح!' : `تسجيل إتمام ورد اليوم (+${khatma.dailyGoalPages} ص)`}</span>
           </button>
         </div>
       </div>
@@ -277,7 +291,6 @@ export const KhatmaPage: React.FC = () => {
         <div className="space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {Array.from({ length: 30 }, (_, i) => i + 1).map((juzNum) => {
-              // Standard Medina Mushaf: each juz is roughly 20 pages
               const startPage = (juzNum - 1) * 20 + 1;
               const endPage = Math.min(604, juzNum * 20);
               const juzTotalPages = endPage - startPage + 1;
@@ -337,7 +350,7 @@ export const KhatmaPage: React.FC = () => {
                 صفحات المصحف الشريف (1 - 604)
               </h3>
               <p className="text-xs text-slate-400">
-                اضغط على أي صفحة لتحديدها كمقروءة أو الانتقال إليها
+                انقر نقرة واحدة لتحديد الصفحة كمقروءة / غير مقروءة صراحة، أو نقراً مزدوجاً للانتقال إليها
               </p>
             </div>
             <span className="text-xs font-bold text-[#123D32] dark:text-[#D5B779] bg-[#D5B779]/20 px-2.5 py-1 rounded-xl">
@@ -345,7 +358,6 @@ export const KhatmaPage: React.FC = () => {
             </span>
           </div>
 
-          {/* Quick Page Jump Slider / Buttons */}
           <div className="flex flex-wrap gap-1.5 max-h-96 overflow-y-auto p-2 border border-slate-100 dark:border-[#1E443A] rounded-2xl">
             {Array.from({ length: 604 }, (_, i) => i + 1).map((pageNum) => {
               const isDone = khatma.completedPages.includes(pageNum);
@@ -381,7 +393,7 @@ export const KhatmaPage: React.FC = () => {
               بدء ختمة جديدة؟
             </h3>
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              سيتم إعادة تعيين صفحات الختمة الحالية إلى البداية، مع تسجيل الختمة المكتملة في رصيد ختماتك.
+              سيتم إعادة تعيين صفحات الختمة الحالية إلى البداية، مع تسجيل الختمة المكتملة في رصيد ختماتك بدقة دون احتساب مكرر.
             </p>
             <div className="flex items-center gap-2 pt-2">
               <button

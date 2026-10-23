@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import {
   Clock,
   MapPin,
-  Compass,
   Sunrise,
   Sun,
   SunMedium,
@@ -14,6 +13,7 @@ import {
   Navigation,
   Check,
   AlertCircle,
+  Info,
 } from 'lucide-react';
 import { POPULAR_CITIES } from '../data/cities';
 import { useAppStore } from '../context/AppContext';
@@ -92,7 +92,7 @@ export const PrayersPage: React.FC = () => {
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1.5">
             <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#D5B779]/20 text-[#D5B779]">
-              مواقيت الصلاة الدقيقة
+              مواقيت الصلاة الفلكية الدقيقة
             </span>
             <h1 className="text-2xl sm:text-3xl font-bold font-sans text-white">
               الصلاة القادمة: {prayerData.nextPrayer?.arabicName}
@@ -100,6 +100,7 @@ export const PrayersPage: React.FC = () => {
             <p className="text-xs text-[#EDE6D4]/80 flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5 text-[#D5B779]" />
               <span>{prayerData.cityName}</span>
+              <span className="opacity-60">({prayerData.timezone})</span>
             </p>
           </div>
 
@@ -121,12 +122,20 @@ export const PrayersPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Official schedule note banner (e.g. Morocco / Umm Al-Qura) */}
+      {prayerData.officialSourceNote && (
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-800 p-3.5 rounded-2xl flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200">
+          <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <p className="leading-relaxed">{prayerData.officialSourceNote}</p>
+        </div>
+      )}
+
       {/* City & Geolocation Selector */}
       <div className="bg-white dark:bg-[#132E27] rounded-3xl p-5 shadow-sm border border-[#E8E2D2] dark:border-[#1E443A] space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <label className="text-xs font-bold text-slate-700 dark:text-[#F7F4EB] flex items-center gap-1.5">
             <MapPin className="w-4 h-4 text-[#D5B779]" />
-            <span>اختر المدينة لحساب المواقيت فلكياً:</span>
+            <span>اختر المدينة لحساب المواقيت فلكياً بتوقيتها المحلي:</span>
           </label>
 
           {/* Geolocation Button */}
@@ -152,9 +161,11 @@ export const PrayersPage: React.FC = () => {
             const val = e.target.value;
             triggerHaptic(20);
             if (val !== 'custom') {
+              const matchedCity = POPULAR_CITIES.find((c) => c.id === val);
               updateSettings({
                 selectedCityId: val,
                 customCoordinates: undefined,
+                calculationMethod: matchedCity?.defaultMethod || settings.calculationMethod,
               });
             }
           }}
@@ -173,9 +184,14 @@ export const PrayersPage: React.FC = () => {
 
       {/* Prayer Times Full Day List */}
       <div className="bg-white dark:bg-[#132E27] rounded-3xl p-5 shadow-sm border border-[#E8E2D2] dark:border-[#1E443A] space-y-2.5">
-        <h2 className="text-sm font-bold text-slate-800 dark:text-[#F7F4EB] mb-3">
-          صلوات اليوم الكاملة
-        </h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-bold text-slate-800 dark:text-[#F7F4EB]">
+            جدول أوقات الصلوات اليومية
+          </h2>
+          <span className="text-[11px] text-slate-400">
+            التوقيت المحلي لـ {prayerData.cityName.split('-')[0]}
+          </span>
+        </div>
 
         <div className="space-y-2">
           {prayerData.items.map((item) => {
@@ -195,15 +211,24 @@ export const PrayersPage: React.FC = () => {
                     {getPrayerIcon(item.iconName)}
                   </div>
                   <div>
-                    <h3 className="font-bold text-sm text-slate-800 dark:text-[#F7F4EB]">
-                      {item.arabicName}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-sm text-slate-800 dark:text-[#F7F4EB]">
+                        {item.arabicName}
+                      </h3>
+                      {!item.isObligatory && (
+                        <span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 py-0.2 rounded-md">
+                          طلوع الشمس
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[10px] text-slate-400">
                       {item.isNext
                         ? 'الصلاة القادمة'
                         : item.isCurrent
-                        ? 'الصلاة الحالية'
-                        : ''}
+                        ? 'الوقت الحالي'
+                        : item.isObligatory
+                        ? 'صلاة مفروضة'
+                        : 'انتهاء وقت الفجر'}
                     </p>
                   </div>
                 </div>
@@ -224,7 +249,7 @@ export const PrayersPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <Settings2 className="w-4 h-4 text-[#D5B779]" />
           <h3 className="text-sm font-bold text-slate-800 dark:text-[#F7F4EB]">
-            طريقة الحساب والمذهب الفقهي
+            طريقة الحساب الفلكية والمذهب
           </h3>
         </div>
 
@@ -243,6 +268,7 @@ export const PrayersPage: React.FC = () => {
               className="w-full p-2.5 rounded-xl bg-[#F7F4EB] dark:bg-[#0C1E19] border border-[#E8E2D2] dark:border-[#1E443A] text-xs font-medium text-slate-800 dark:text-[#F7F4EB]"
             >
               <option value="UmmAlQura">أم القرى (مكة المكرمة)</option>
+              <option value="Morocco">المملكة المغربية (وزارة الأوقاف والشؤون الإسلامية: 19°/17°)</option>
               <option value="Egyptian">الهيئة العامة المصرية للمساحة</option>
               <option value="MWL">رابطة العالم الإسلامي</option>
               <option value="ISNA">الجمعية الإسلامية لأمريكا الشمالية (ISNA)</option>
@@ -265,14 +291,14 @@ export const PrayersPage: React.FC = () => {
               }}
               className="w-full p-2.5 rounded-xl bg-[#F7F4EB] dark:bg-[#0C1E19] border border-[#E8E2D2] dark:border-[#1E443A] text-xs font-medium text-slate-800 dark:text-[#F7F4EB]"
             >
-              <option value="shafi">الشافعي والجمهور (الظل مثله)</option>
-              <option value="hanafi">الحنفي (الظل مثليه)</option>
+              <option value="shafi">الجمهور (الشافعي، المالكي، الحنبلي - الظل مثله)</option>
+              <option value="hanafi">المذهب الحنفي (الظل مثليه)</option>
             </select>
           </div>
         </div>
 
         <p className="text-[10px] text-slate-400 leading-relaxed">
-          * تم التحقق من صحة الحسابات الفلكية عبر مكتبة adhan المعتمدة دولياً، وفق خطوط الطول والعرض وزاوية انخفاض الشمس بدقة دون أي مواعيد مصطنعة.
+          * تم التحقق من صحة الحسابات الفلكية عبر مكتبة adhan المعتمدة، بالاعتماد على خطوط العرض والطول الدقيقة وتنسيق التوقيت الزمني للمدينة المختارة.
         </p>
       </div>
     </div>

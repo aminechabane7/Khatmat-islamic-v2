@@ -1,106 +1,83 @@
-import { Ayah, SurahDetail } from '../types';
-import { ALL_SURAHS } from '../data/surahs';
+import { Ayah, QuranOfflineStatus, SurahDetail, SurahMeta } from '../types';
+import { ALL_SURAHS, TOTAL_AYAHS, TOTAL_SURAHS } from '../data/surahs';
 
-// Verified pre-bundled authentic Quranic text in Uthmani script for immediate offline availability
-const BUNDLED_SURAHS: Record<number, Ayah[]> = {
-  // Surah Al-Fatiha (1)
-  1: [
-    { number: 1, numberInSurah: 1, text: "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ", juz: 1, page: 1 },
-    { number: 2, numberInSurah: 2, text: "الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ", juz: 1, page: 1 },
-    { number: 3, numberInSurah: 3, text: "الرَّحْمَٰنِ الرَّحِيمِ", juz: 1, page: 1 },
-    { number: 4, numberInSurah: 4, text: "مَالِكِ يَوْمِ الدِّينِ", juz: 1, page: 1 },
-    { number: 5, numberInSurah: 5, text: "إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ", juz: 1, page: 1 },
-    { number: 6, numberInSurah: 6, text: "اهْدِنَا الصِّرَاطَ الْمُسْتَقِيمَ", juz: 1, page: 1 },
-    { number: 7, numberInSurah: 7, text: "صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ وَلَا الضَّالِّينَ", juz: 1, page: 1 }
-  ],
-  // Surah Al-Mulk (67)
-  67: [
-    { number: 5242, numberInSurah: 1, text: "تَبَارَكَ الَّذِي بِيَدِهِ الْمُلْكُ وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ", juz: 29, page: 562 },
-    { number: 5243, numberInSurah: 2, text: "الَّذِي خَلَقَ الْمَوْتَ وَالْحَيَاةَ لِيَبْلُوَكُمْ أَيُّكُمْ أَحْسَنُ عَمَلًا ۚ وَهُوَ الْعَزِيزُ الْغَفُورُ", juz: 29, page: 562 },
-    { number: 5244, numberInSurah: 3, text: "الَّذِي خَلَقَ سَبْعَ سَمَاوَاتٍ طِبَاقًا ۖ مَّا تَرَىٰ فِي خَلْقِ الرَّحْمَٰنِ مِن تَفَاوُتٍ ۖ فَارْجِعِ الْبَصَرَ هَلْ تَرَىٰ مِن فُطُورٍ", juz: 29, page: 562 },
-    { number: 5245, numberInSurah: 4, text: "ثُمَّ ارْجِعِ الْبَصَرَ كَرَّتَيْنِ يَنقَلِبْ إِلَيْكَ الْبَصَرُ خَاسِئًا وَهُوَ حَسِيرٌ", juz: 29, page: 562 },
-    { number: 5246, numberInSurah: 5, text: "وَلَقَدْ زَيَّنَّا السَّمَاءَ الدُّنْيَا بِمَصَابِيحَ وَجَعَلْنَاهَا رُجُومًا لِّلشَّيَاطِينِ ۖ وَأَعْتَدْنَا لَهُمْ عَذَابَ السَّعِيرِ", juz: 29, page: 562 },
-    { number: 5247, numberInSurah: 6, text: "وَلِلَّذِينَ كَفَرُوا بِرَبِّهِمْ عَذَابُ جَهَنَّمَ ۖ وَبِئْسَ الْمَصِيرُ", juz: 29, page: 562 },
-    { number: 5248, numberInSurah: 7, text: "إِذَا أُلْقُوا فِيهَا سَمِعُوا لَهَا شَهِيقًا وَهِيَ تَفُورُ", juz: 29, page: 562 },
-    { number: 5249, numberInSurah: 8, text: "تَكَادُ تَمَيَّزُ مِنَ الْغَيْظِ ۖ كُلَّمَا أُلْقِيَ فِيهَا فَوْجٌ سَأَلَهُمْ خَزَنَتُهَا أَلَمْ يَأْتِكُمْ نَذِيرٌ", juz: 29, page: 562 },
-    { number: 5250, numberInSurah: 9, text: "قَالُوا بَلَىٰ قَدْ جَاءَنَا نَذِيرٌ فَكَذَّبْنَا وَقُلْنَا مَا نَزَّلَ اللَّهُ مِن شَيْءٍ إِنْ أَنتُمْ إِلَّا فِي ضَلَالٍ كَبِيرٍ", juz: 29, page: 562 },
-    { number: 5251, numberInSurah: 10, text: "وَقَالُوا لَوْ كُنَّا نَسْمَعُ أَوْ نَعْقِلُ مَا كُنَّا فِي أَصْحَابِ السَّعِيرِ", juz: 29, page: 562 },
-    { number: 5252, numberInSurah: 11, text: "فَاعْتَرَفُوا بِذَنبِهِمْ فَسُحْقًا لِّأَصْحَابِ السَّعِيرِ", juz: 29, page: 563 },
-    { number: 5253, numberInSurah: 12, text: "إِنَّ الَّذِينَ يَخْشَوْنَ رَبَّهُم بِالْغَيْبِ لَهُم مَّغْفِرَةٌ وَأَجْرٌ كَبِيرٌ", juz: 29, page: 563 },
-    { number: 5254, numberInSurah: 13, text: "وَأَسِرُّوا قَوْلَكُمْ أَوِ اجْهَرُوا بِهِ ۖ إِنَّهُ عَلِيمٌ بِذَاتِ الصُّدُورِ", juz: 29, page: 563 },
-    { number: 5255, numberInSurah: 14, text: "أَلَا يَعْلَمُ مَنْ خَلَقَ وَهُوَ اللَّطِيفُ الْخَبِيرُ", juz: 29, page: 563 },
-    { number: 5256, numberInSurah: 15, text: "هُوَ الَّذِي جَعَلَ لَكُمُ الْأَرْضَ ذَلُولًا فَامْشُوا فِي مَنَاكِبِهَا وَكُلُوا مِن رِّزْقِهِ ۖ وَإِلَيْهِ النُّشُورُ", juz: 29, page: 563 },
-    { number: 5257, numberInSurah: 16, text: "أَأَمِنتُم مَّن فِي السَّمَاءِ أَن يَخْسِفَ بِكُمُ الْأَرْضَ فَإِذَا هِيَ تَمُورُ", juz: 29, page: 563 },
-    { number: 5258, numberInSurah: 17, text: "أَمْ أَمِنتُم مَّن فِي السَّمَاءِ أَن يُرْسِلَ عَلَيْكُمْ حَاصِبًا ۖ فَسَتَعْلَمُونَ كَيْفَ نَذِيرِ", juz: 29, page: 563 },
-    { number: 5259, numberInSurah: 18, text: "وَلَقَدْ كَذَّبَ الَّذِينَ مِن قَبْلِهِمْ فَكَيْفَ كَانَ نَكِيرِ", juz: 29, page: 563 },
-    { number: 5260, numberInSurah: 19, text: "أَوَلَمْ يَرَوْا إِلَى الطَّيْرِ فَوْقَهُمْ صَافَّاتٍ وَيَقْبِضْنَ ۚ مَا يُمْسِكُهُنَّ إِلَّا الرَّحْمَٰنُ ۚ إِنَّهُ بِكُلِّ شَيْءٍ بَصِيرٌ", juz: 29, page: 563 },
-    { number: 5261, numberInSurah: 20, text: "أَمَّنْ هَٰذَا الَّذِي هُوَ جُندٌ لَّكُمْ يَنصُرُكُم مِّن دُونِ الرَّحْمَٰنِ ۚ إِنِ الْكَافِرُونَ إِلَّا فِي غُرُورٍ", juz: 29, page: 563 },
-    { number: 5262, numberInSurah: 21, text: "أَمَّنْ هَٰذَا الَّذِي يَرْزُقُكُمْ إِنْ أَمْسَكَ رِزْقَهُ ۚ بَل لَّجُّوا فِي عُتُوٍّ وَنُفُورٍ", juz: 29, page: 563 },
-    { number: 5263, numberInSurah: 22, text: "أَفَمَن يَمْشِي مُكِبًّا عَلَىٰ وَجْهِهِ أَهْدَىٰ أَمَّن يَمْشِي سَوِيًّا عَلَىٰ صِرَاطٍ مُّسْتَقِيمٍ", juz: 29, page: 563 },
-    { number: 5264, numberInSurah: 23, text: "قُلْ هُوَ الَّذِي أَنشَأَكُمْ وَجَعَلَ لَكُمُ السَّمْعَ وَالْأَبْصَارَ وَالْأَفْئِدَةَ ۖ قَلِيلًا مَّا تَشْكُرُونَ", juz: 29, page: 563 },
-    { number: 5265, numberInSurah: 24, text: "قُلْ هُوَ الَّذِي ذَرَأَكُمْ فِي الْأَرْضِ وَإِلَيْهِ تُحْشَرُونَ", juz: 29, page: 563 },
-    { number: 5266, numberInSurah: 25, text: "وَيَقُولُونَ مَتَىٰ هَٰذَا الْوَعْدُ إِن كُنتُمْ صَادِقِينَ", juz: 29, page: 563 },
-    { number: 5267, numberInSurah: 26, text: "قُلْ إِنَّمَا الْعِلْمُ عِندَ اللَّهِ وَإِنَّمَا أَنَا نَذِيرٌ مُّبِينٌ", juz: 29, page: 563 },
-    { number: 5268, numberInSurah: 27, text: "فَلَمَّا رَأَوْهُ زُلْفَةً سِيئَتْ وُجُوهُ الَّذِينَ كَفَرُوا وَقِيلَ هَٰذَا الَّذِي كُنتُم بِهِ تَدَّعُونَ", juz: 29, page: 564 },
-    { number: 5269, numberInSurah: 28, text: "قُلْ أَرَأَيْتُمْ إِنْ أَهْلَكَنِيَ اللَّهُ وَمَن مَّعِيَ أَوْ رَحِمَنَا فَمَن يُجِيرُ الْكَافِرِينَ مِنْ عَذَابٍ أَلِيمٍ", juz: 29, page: 564 },
-    { number: 5270, numberInSurah: 29, text: "قُلْ هُوَ الرَّحْمَٰنُ آمَنَّا بِهِ وَعَلَيْهِ تَوَكَّلْنَا ۖ فَسَتَعْلَمُونَ مَنْ هُوَ فِي ضَلَالٍ مُّبِينٍ", juz: 29, page: 564 },
-    { number: 5271, numberInSurah: 30, text: "قُلْ أَرَأَيْتُمْ إِنْ أَصْبَحَ مَاؤُكُمْ غَوْرًا فَمَن يَأْتِيكُم بِمَاءٍ مَّعِينٍ", juz: 29, page: 564 }
-  ],
-  // Surah Al-Kawthar (108)
-  108: [
-    { number: 6205, numberInSurah: 1, text: "إِنَّا أَعْطَيْنَاكَ الْكَوْثَرَ", juz: 30, page: 602 },
-    { number: 6206, numberInSurah: 2, text: "فَصَلِّ لِرَبِّكَ وَانْحَرْ", juz: 30, page: 602 },
-    { number: 6207, numberInSurah: 3, text: "إِنَّ شَانِئَكَ هُوَ الْأَبْتَرُ", juz: 30, page: 602 }
-  ],
-  // Surah Al-Ikhlas (112)
-  112: [
-    { number: 6222, numberInSurah: 1, text: "قُلْ هُوَ اللَّهُ أَحَدٌ", juz: 30, page: 604 },
-    { number: 6223, numberInSurah: 2, text: "اللَّهُ الصَّمَدُ", juz: 30, page: 604 },
-    { number: 6224, numberInSurah: 3, text: "لَمْ يَلِدْ وَلَمْ يُولَدْ", juz: 30, page: 604 },
-    { number: 6225, numberInSurah: 4, text: "وَلَمْ يَكُن لَّهُ كُفُوًا أَحَدٌ", juz: 30, page: 604 }
-  ],
-  // Surah Al-Falaq (113)
-  113: [
-    { number: 6226, numberInSurah: 1, text: "قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ", juz: 30, page: 604 },
-    { number: 6227, numberInSurah: 2, text: "مِن شَرِّ مَا خَلَقَ", juz: 30, page: 604 },
-    { number: 6228, numberInSurah: 3, text: "وَمِن شَرِّ غَاسِقٍ إِذَا وَقَبَ", juz: 30, page: 604 },
-    { number: 6229, numberInSurah: 4, text: "وَمِن شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ", juz: 30, page: 604 },
-    { number: 6230, numberInSurah: 5, text: "وَمِن شَرِّ حَاسِدٍ إِذَا حَسَدَ", juz: 30, page: 604 }
-  ],
-  // Surah An-Nas (114)
-  114: [
-    { number: 6231, numberInSurah: 1, text: "قُلْ أَعُوذُ بِرَبِّ النَّاسِ", juz: 30, page: 604 },
-    { number: 6232, numberInSurah: 2, text: "مَلِكِ النَّاسِ", juz: 30, page: 604 },
-    { number: 6233, numberInSurah: 3, text: "إِلَٰهِ النَّاسِ", juz: 30, page: 604 },
-    { number: 6234, numberInSurah: 4, text: "مِن شَرِّ الْوَسْوَاسِ الْخَنَّاسِ", juz: 30, page: 604 },
-    { number: 6235, numberInSurah: 5, text: "الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ", juz: 30, page: 604 },
-    { number: 6236, numberInSurah: 6, text: "مِنَ الْجِنَّةِ وَالنَّاسِ", juz: 30, page: 604 }
-  ]
-};
+// Documented open source: Tanzil Project (Hafs Uthmani Script, CC-BY 3.0) via Alquran Cloud API
+export const QURAN_DATASET_SOURCE = 'Tanzil Project (Hafs Uthmani Text) / Al-Quran Cloud API';
 
-// IndexedDB database name and store for caching verified Quran text locally
 const DB_NAME = 'khatmati_quran_cache_db';
 const STORE_NAME = 'surahs_store';
+const METADATA_STORE = 'quran_meta_store';
 
 function openQuranDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof window === 'undefined' || !window.indexedDB) {
-      reject(new Error('IndexedDB not supported'));
+      reject(new Error('IndexedDB غير مدعوم في هذا المتصفح'));
       return;
     }
-    const request = window.indexedDB.open(DB_NAME, 1);
-    request.onupgradeneeded = () => {
+    const request = window.indexedDB.open(DB_NAME, 2);
+
+    request.onupgradeneeded = (event) => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME, { keyPath: 'number' });
       }
+      if (!db.objectStoreNames.contains(METADATA_STORE)) {
+        db.createObjectStore(METADATA_STORE, { keyPath: 'key' });
+      }
     };
+
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onerror = () => reject(request.error || new Error('فشل فتح قاعدة البيانات المحلية'));
   });
 }
 
-async function getCachedSurah(surahNumber: number): Promise<Ayah[] | null> {
+/**
+ * Validate that a Surah's ayahs meet integrity constraints:
+ * - Count must match exact verified ayah count in ALL_SURAHS
+ * - Sequential numberInSurah from 1 to N
+ * - Non-empty Uthmani text
+ * - Valid Medina Mushaf page range 1..604
+ */
+export function validateSurahIntegrity(surahNumber: number, ayahs: Ayah[]): { isValid: boolean; reason?: string } {
+  const meta = ALL_SURAHS.find((s) => s.number === surahNumber);
+  if (!meta) {
+    return { isValid: false, reason: `سورة رقم ${surahNumber} غير موجودة في الفهرس المعتمد` };
+  }
+
+  if (!Array.isArray(ayahs) || ayahs.length !== meta.numberOfAyahs) {
+    return {
+      isValid: false,
+      reason: `عدد آيات سورة ${meta.name} (${ayahs?.length || 0}) لا يطابق العدد المعتمد (${meta.numberOfAyahs})`,
+    };
+  }
+
+  for (let i = 0; i < ayahs.length; i++) {
+    const expectedNumInSurah = i + 1;
+    const ayah = ayahs[i];
+    if (ayah.numberInSurah !== expectedNumInSurah) {
+      return {
+        isValid: false,
+        reason: `ترتيب الآيات غير مطابق في سورة ${meta.name} عند الآية ${expectedNumInSurah}`,
+      };
+    }
+    if (!ayah.text || typeof ayah.text !== 'string' || ayah.text.trim().length === 0) {
+      return {
+        isValid: false,
+        reason: `نص الآية ${expectedNumInSurah} في سورة ${meta.name} فارغ أو غير صالح`,
+      };
+    }
+    if (ayah.page && (ayah.page < 1 || ayah.page > 604)) {
+      return {
+        isValid: false,
+        reason: `رقم صفحة المصحف (${ayah.page}) خارج النطاق المعتمد (1-604)`,
+      };
+    }
+  }
+
+  return { isValid: true };
+}
+
+export async function getCachedSurah(surahNumber: number): Promise<Ayah[] | null> {
   try {
     const db = await openQuranDB();
     return new Promise((resolve) => {
@@ -109,7 +86,13 @@ async function getCachedSurah(surahNumber: number): Promise<Ayah[] | null> {
       const req = store.get(surahNumber);
       req.onsuccess = () => {
         if (req.result && Array.isArray(req.result.ayahs)) {
-          resolve(req.result.ayahs);
+          const check = validateSurahIntegrity(surahNumber, req.result.ayahs);
+          if (check.isValid) {
+            resolve(req.result.ayahs);
+          } else {
+            console.warn(`Corrupted cache for surah ${surahNumber}:`, check.reason);
+            resolve(null);
+          }
         } else {
           resolve(null);
         }
@@ -121,36 +104,40 @@ async function getCachedSurah(surahNumber: number): Promise<Ayah[] | null> {
   }
 }
 
-async function setCachedSurah(surahNumber: number, ayahs: Ayah[]): Promise<void> {
+export async function setCachedSurah(surahNumber: number, ayahs: Ayah[]): Promise<boolean> {
+  const check = validateSurahIntegrity(surahNumber, ayahs);
+  if (!check.isValid) {
+    console.error(`Refusing to cache invalid Surah ${surahNumber}: ${check.reason}`);
+    return false;
+  }
+
   try {
     const db = await openQuranDB();
-    const transaction = db.transaction([STORE_NAME], 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-    store.put({ number: surahNumber, ayahs, cachedAt: Date.now() });
+    return new Promise((resolve) => {
+      const transaction = db.transaction([STORE_NAME], 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+      const req = store.put({ number: surahNumber, ayahs, cachedAt: Date.now() });
+      req.onsuccess = () => resolve(true);
+      req.onerror = () => resolve(false);
+    });
   } catch (err) {
     console.warn('Failed to cache surah in IndexedDB:', err);
+    return false;
   }
 }
 
 /**
- * Fetch verified Surah verses from pre-bundled data, IndexedDB cache,
- * or the official Al-Quran Cloud API (Uthmani edition).
+ * Fetch verified Surah verses from IndexedDB cache, local verified asset,
+ * or official Al-Quran Cloud Tanzil Uthmani endpoint.
+ * Never hallucinates or generates Quranic text.
  */
 export async function getSurahDetail(surahNumber: number): Promise<SurahDetail> {
   const meta = ALL_SURAHS.find((s) => s.number === surahNumber);
   if (!meta) {
-    throw new Error(`سورة رقم ${surahNumber} غير موجودة`);
+    throw new Error(`سورة رقم ${surahNumber} غير موجودة في فهرس القرآن الكريم`);
   }
 
-  // 1. Check local pre-bundled verified text first
-  if (BUNDLED_SURAHS[surahNumber]) {
-    return {
-      ...meta,
-      ayahs: BUNDLED_SURAHS[surahNumber],
-    };
-  }
-
-  // 2. Check IndexedDB offline cache
+  // 1. Check IndexedDB verified cache first
   const cached = await getCachedSurah(surahNumber);
   if (cached && cached.length > 0) {
     return {
@@ -159,11 +146,34 @@ export async function getSurahDetail(surahNumber: number): Promise<SurahDetail> 
     };
   }
 
-  // 3. Fetch from official verified Al-Quran Cloud API
+  // 2. Try loading from local bundled asset /data/quran-uthmani.json
+  try {
+    const localRes = await fetch('/data/quran-uthmani.json');
+    if (localRes.ok) {
+      const allSurahsData = await localRes.json();
+      if (Array.isArray(allSurahsData)) {
+        const found = allSurahsData.find((s: any) => s.number === surahNumber);
+        if (found && Array.isArray(found.ayahs)) {
+          const check = validateSurahIntegrity(surahNumber, found.ayahs);
+          if (check.isValid) {
+            await setCachedSurah(surahNumber, found.ayahs);
+            return {
+              ...meta,
+              ayahs: found.ayahs,
+            };
+          }
+        }
+      }
+    }
+  } catch {
+    // Continue to network fetch
+  }
+
+  // 3. Fallback to official verified Tanzil Uthmani API
   try {
     const response = await fetch(`https://api.alquran.cloud/v1/surah/${surahNumber}/quran-uthmani`);
     if (!response.ok) {
-      throw new Error(`خطأ في استرجاع السورة من الخادم (${response.status})`);
+      throw new Error(`تعذر جلب السورة من الخادم (${response.status})`);
     }
 
     const data = await response.json();
@@ -178,7 +188,11 @@ export async function getSurahDetail(surahNumber: number): Promise<SurahDetail> 
         sajda: a.sajda || false,
       }));
 
-      // Cache into IndexedDB for full offline usage
+      const check = validateSurahIntegrity(surahNumber, parsedAyahs);
+      if (!check.isValid) {
+        throw new Error(`بيانات السورة غير مكتملة: ${check.reason}`);
+      }
+
       await setCachedSurah(surahNumber, parsedAyahs);
 
       return {
@@ -186,10 +200,9 @@ export async function getSurahDetail(surahNumber: number): Promise<SurahDetail> 
         ayahs: parsedAyahs,
       };
     } else {
-      throw new Error('صيغة بيانات المصحف غير متوقعة');
+      throw new Error('صيغة بيانات المصحف غير متوقعة من المصدر المعتمد');
     }
   } catch (error: any) {
-    // If user is offline and no cache exists:
     throw new Error(
       `تعذر تحميل سورة ${meta.name}. يرجى التحقق من الاتصال بالإنترنت لتحميل السورة وحفظها للاستخدام دون إنترنت.`
     );
@@ -197,8 +210,139 @@ export async function getSurahDetail(surahNumber: number): Promise<SurahDetail> 
 }
 
 /**
- * Pre-cache a Surah for offline reading
+ * Returns accurate offline status by counting verified Surahs and Ayahs in IndexedDB.
  */
+export async function getQuranOfflineStatus(): Promise<QuranOfflineStatus> {
+  try {
+    const db = await openQuranDB();
+    return new Promise((resolve) => {
+      const transaction = db.transaction([STORE_NAME], 'readonly');
+      const store = transaction.objectStore(STORE_NAME);
+      const req = store.getAll();
+
+      req.onsuccess = () => {
+        const results = req.result || [];
+        let validSurahsCount = 0;
+        let validAyahsCount = 0;
+
+        for (const item of results) {
+          if (item && item.number && Array.isArray(item.ayahs)) {
+            const check = validateSurahIntegrity(item.number, item.ayahs);
+            if (check.isValid) {
+              validSurahsCount += 1;
+              validAyahsCount += item.ayahs.length;
+            }
+          }
+        }
+
+        const isFullyDownloaded = validSurahsCount === TOTAL_SURAHS && validAyahsCount === TOTAL_AYAHS;
+
+        resolve({
+          isFullyDownloaded,
+          downloadedSurahsCount: validSurahsCount,
+          totalSurahs: TOTAL_SURAHS,
+          downloadedAyahsCount: validAyahsCount,
+          totalAyahs: TOTAL_AYAHS,
+        });
+      };
+
+      req.onerror = () => {
+        resolve({
+          isFullyDownloaded: false,
+          downloadedSurahsCount: 0,
+          totalSurahs: TOTAL_SURAHS,
+          downloadedAyahsCount: 0,
+          totalAyahs: TOTAL_AYAHS,
+        });
+      };
+    });
+  } catch {
+    return {
+      isFullyDownloaded: false,
+      downloadedSurahsCount: 0,
+      totalSurahs: TOTAL_SURAHS,
+      downloadedAyahsCount: 0,
+      totalAyahs: TOTAL_AYAHS,
+    };
+  }
+}
+
+/**
+ * Download and verify the complete Quran (114 Surahs, 6236 Ayahs) for offline reading.
+ * Provides live progress callbacks, error handling, and strict integrity verification.
+ */
+export async function downloadAllQuranForOffline(
+  onProgress?: (percent: number, currentSurah: number) => void
+): Promise<boolean> {
+  try {
+    let allSurahsData: any[] | null = null;
+
+    // 1. Try fetching the full verified dataset asset first
+    try {
+      const res = await fetch('/data/quran-uthmani.json');
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json) && json.length === TOTAL_SURAHS) {
+          allSurahsData = json;
+        }
+      }
+    } catch {
+      // fallback
+    }
+
+    // 2. If not found locally, fetch from verified Tanzil Uthmani endpoint
+    if (!allSurahsData) {
+      const res = await fetch('https://api.alquran.cloud/v1/quran/quran-uthmani');
+      if (!res.ok) {
+        throw new Error('فشل الاتصال بمصدر بيانات القرآن المعتمد');
+      }
+      const json = await res.json();
+      if (json.code === 200 && json.data && Array.isArray(json.data.surahs)) {
+        allSurahsData = json.data.surahs;
+      } else {
+        throw new Error('هيئة استجابة المصحف غير متوافقة');
+      }
+    }
+
+    if (!allSurahsData || allSurahsData.length !== TOTAL_SURAHS) {
+      throw new Error(`البيانات المسترجعة غير مكتملة (تم العثور على ${allSurahsData?.length || 0} سورة فقط)`);
+    }
+
+    // 3. Validate and store each surah into IndexedDB with progress reporting
+    const db = await openQuranDB();
+    for (let i = 0; i < allSurahsData.length; i++) {
+      const rawSurah = allSurahsData[i];
+      const surahNum = rawSurah.number;
+      const ayahs: Ayah[] = rawSurah.ayahs.map((a: any) => ({
+        number: a.number,
+        numberInSurah: a.numberInSurah,
+        text: a.text,
+        juz: a.juz,
+        page: a.page,
+        hizbQuarter: a.hizbQuarter,
+        sajda: a.sajda || false,
+      }));
+
+      const check = validateSurahIntegrity(surahNum, ayahs);
+      if (!check.isValid) {
+        throw new Error(`فشل التحقق من السورة رقم ${surahNum}: ${check.reason}`);
+      }
+
+      await setCachedSurah(surahNum, ayahs);
+
+      if (onProgress) {
+        const percent = Math.round(((i + 1) / TOTAL_SURAHS) * 100);
+        onProgress(percent, surahNum);
+      }
+    }
+
+    return true;
+  } catch (error: any) {
+    console.error('Download Quran offline failed:', error);
+    throw error;
+  }
+}
+
 export async function preCacheSurah(surahNumber: number): Promise<boolean> {
   try {
     await getSurahDetail(surahNumber);
@@ -208,11 +352,7 @@ export async function preCacheSurah(surahNumber: number): Promise<boolean> {
   }
 }
 
-/**
- * Check if a Surah is available offline
- */
 export async function isSurahOfflineAvailable(surahNumber: number): Promise<boolean> {
-  if (BUNDLED_SURAHS[surahNumber]) return true;
   const cached = await getCachedSurah(surahNumber);
-  return !!(cached && cached.length > 0);
+  return Boolean(cached && cached.length > 0);
 }

@@ -18,6 +18,7 @@ import { useAppStore } from '../context/AppContext';
 import { calculatePrayerTimes, PrayerTimesResult } from '../services/prayerService';
 import { ALL_SURAHS, TOTAL_PAGES } from '../data/surahs';
 import { PWAInstallButton } from '../components/PWAInstallButton';
+import { getLocalDateKey } from '../services/storageService';
 
 export const HomePage: React.FC = () => {
   const { settings, khatma, adhkarProgress, triggerHaptic } = useAppStore();
@@ -39,8 +40,8 @@ export const HomePage: React.FC = () => {
   const currentSurah =
     ALL_SURAHS.find((s) => s.number === khatma.currentSurahNumber) || ALL_SURAHS[0];
 
-  // Daily reading progress
-  const todayKey = new Date().toISOString().split('T')[0];
+  // Daily reading progress in local calendar date
+  const todayKey = getLocalDateKey();
   const pagesReadToday = khatma.dailyLogs[todayKey] || 0;
   const dailyProgressPercent = Math.min(
     100,

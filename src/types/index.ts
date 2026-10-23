@@ -42,8 +42,9 @@ export interface KhatmaState {
   dailyGoalPages: number;
   targetDays: number;
   startDate: string;
-  dailyLogs: { [dateKey: string]: number }; // dateKey 'YYYY-MM-DD' -> pages count
+  dailyLogs: { [dateKey: string]: number }; // dateKey 'YYYY-MM-DD' (local calendar) -> pages count
   completedKhatmasCount: number;
+  khatmaCompletedAwarded?: boolean;
 }
 
 export type AdhkarCategory = 'morning' | 'evening' | 'sleep' | 'after_prayer';
@@ -55,6 +56,8 @@ export interface DhikrItem {
   count: number; // total needed
   reward?: string; // فضل الذكر
   reference: string; // المصدر (صحيح البخاري، مسلم، إلخ)
+  hadithNumber?: string;
+  verificationStatus?: 'verified' | 'needs_review';
 }
 
 export interface PrayerTimeItem {
@@ -65,7 +68,18 @@ export interface PrayerTimeItem {
   isNext: boolean;
   isCurrent: boolean;
   iconName: string;
+  isObligatory: boolean; // True for the 5 Fard prayers, false for sunrise (الشروق)
 }
+
+export type CalculationMethodType =
+  | 'MWL'
+  | 'UmmAlQura'
+  | 'Egyptian'
+  | 'ISNA'
+  | 'Dubai'
+  | 'Qatar'
+  | 'Kuwait'
+  | 'Morocco';
 
 export interface AppSettings {
   theme: 'light' | 'dark';
@@ -73,8 +87,17 @@ export interface AppSettings {
   quranFont: 'amiri' | 'cairo';
   selectedCityId: string;
   customCoordinates?: { lat: number; lng: number; name: string };
-  calculationMethod: 'MWL' | 'UmmAlQura' | 'Egyptian' | 'ISNA' | 'Dubai' | 'Qatar' | 'Kuwait';
+  calculationMethod: CalculationMethodType;
   madhab: 'shafi' | 'hanafi';
   hapticEnabled: boolean;
   showTranslation: boolean;
+}
+
+export interface QuranOfflineStatus {
+  isFullyDownloaded: boolean;
+  downloadedSurahsCount: number;
+  totalSurahs: number;
+  downloadedAyahsCount: number;
+  totalAyahs: number;
+  lastVerifiedAt?: number;
 }

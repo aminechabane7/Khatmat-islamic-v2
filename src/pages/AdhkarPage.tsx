@@ -152,9 +152,20 @@ export const AdhkarPage: React.FC = () => {
                           <span>{dhikr.reward}</span>
                         </p>
                       )}
-                      <p className="text-[11px] text-slate-400">
-                        المصدر: {dhikr.reference}
-                      </p>
+                      <div className="flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-400">
+                        <span>
+                          المصدر: {dhikr.reference} {dhikr.hadithNumber && `(${dhikr.hadithNumber})`}
+                        </span>
+                        {dhikr.verificationStatus === 'verified' ? (
+                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md">
+                            حديث ثابت وموثق ✓
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md">
+                            بانتظار المراجعة
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Counter Button Bar */}

@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
-import { AppSettings, Bookmark, KhatmaState } from '../types';
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
+import { AppSettings, Bookmark, KhatmaState, QuranOfflineStatus } from '../types';
 import {
   DEFAULT_SETTINGS,
   DEFAULT_KHATMA_STATE,
@@ -12,8 +12,13 @@ import {
   loadAdhkarProgress,
   saveAdhkarProgress,
   AdhkarProgressState,
+  getLocalDateKey,
   resetAllData,
 } from '../services/storageService';
+import {
+  getQuranOfflineStatus,
+  downloadAllQuranForOffline,
+} from '../services/quranService';
 
 interface AppContextType {
   settings: AppSettings;
@@ -21,8 +26,10 @@ interface AppContextType {
   khatma: KhatmaState;
   updateKhatma: (newState: Partial<KhatmaState>) => void;
   setReadingPosition: (surahNumber: number, ayahNumber: number, pageNumber: number) => void;
+  markPageCompleted: (pageNumber: number, completed: boolean) => void;
   togglePageCompleted: (pageNumber: number) => void;
   markPagesUpTo: (pageNumber: number) => void;
+  isPageCompleted: (pageNumber: number) => boolean;
   resetKhatma: () => void;
   bookmarks: Bookmark[];
   addBookmark: (bm: Omit<Bookmark, 'id' | 'createdAt'>) => void;
@@ -33,6 +40,11 @@ interface AppContextType {
   resetAdhkarSection: (dhikrIds: string[]) => void;
   resetAllAppData: () => void;
   triggerHaptic: (pattern?: number | number[]) => void;
+  quranOfflineStatus: QuranOfflineStatus;
+  refreshOfflineStatus: () => Promise<void>;
+  downloadQuranOffline: (
+    onProgress?: (percent: number, currentSurah: number) => void
+  ) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -42,8 +54,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [khatma, setKhatmaState] = useState<KhatmaState>(() => loadKhatmaState());
   const [bookmarks, setBookmarksState] = useState<Bookmark[]>(() => loadBookmarks());
   const [adhkarProgress, setAdhkarProgressState] = useState<AdhkarProgressState>(() => loadAdhkarProgress());
+  const [quranOfflineStatus, setQuranOfflineStatus] = useState<QuranOfflineStatus>({
+    isFullyDownloaded: false,
+    downloadedSurahsCount: 0,
+    totalSurahs: 114,
+    downloadedAyahsCount: 0,
+    totalAyahs: 6236,
+  });
 
-  // Apply dark mode theme on initial mount
+  const refreshOfflineStatus = useCallback(async () => {
+    try {
+      const status = await getQuranOfflineStatus();
+      setQuranOfflineStatus(status);
+    } catch (e) {
+      console.warn('Failed to get offline status', e);
+    }
+  }, []);
+
+  // Check offline status on mount
+  useEffect(() => {
+    refreshOfflineStatus();
+  }, [refreshOfflineStatus]);
+
+  // Apply dark mode theme on initial mount and change
   useEffect(() => {
     if (settings.theme === 'dark') {
       document.documentElement.classList.add('dark');
@@ -78,78 +111,182 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  /**
+   * PRIORITY 1: setReadingPosition must ONLY update currentSurahNumber, currentAyahNumber and currentPageNumber.
+   * NEVER marks a page completed simply because it was opened.
+   * Validates page number (1-604), surah number (1-114), and ayah number (>=1).
+   */
   const setReadingPosition = (surahNumber: number, ayahNumber: number, pageNumber: number) => {
-    const todayKey = new Date().toISOString().split('T')[0];
+    const validSurah = Math.max(1, Math.min(114, Math.floor(surahNumber) || 1));
+    const validAyah = Math.max(1, Math.floor(ayahNumber) || 1);
+    const validPage = Math.max(1, Math.min(604, Math.floor(pageNumber) || 1));
+
     setKhatmaState((prev) => {
-      // Add page to completed pages if not present
-      const completedSet = new Set(prev.completedPages);
-      const isNewPage = !completedSet.has(pageNumber);
-      if (isNewPage) {
-        completedSet.add(pageNumber);
+      if (
+        prev.currentSurahNumber === validSurah &&
+        prev.currentAyahNumber === validAyah &&
+        prev.currentPageNumber === validPage
+      ) {
+        return prev;
       }
 
-      const currentDayPages = (prev.dailyLogs[todayKey] || 0) + (isNewPage ? 1 : 0);
       const updated: KhatmaState = {
         ...prev,
-        currentSurahNumber: surahNumber,
-        currentAyahNumber: ayahNumber,
-        currentPageNumber: pageNumber,
-        completedPages: Array.from(completedSet).sort((a, b) => a - b),
-        dailyLogs: {
-          ...prev.dailyLogs,
-          [todayKey]: currentDayPages,
-        },
+        currentSurahNumber: validSurah,
+        currentAyahNumber: validAyah,
+        currentPageNumber: validPage,
+        // completedPages and dailyLogs are strictly untouched here!
       };
       saveKhatmaState(updated);
       return updated;
     });
   };
 
+  /**
+   * Explicit action to toggle a page completed or uncompleted.
+   * Accurately updates dailyLogs using local calendar date.
+   * Prevents duplicate completed pages and handles Khatma completion counting without double-counting.
+   */
   const togglePageCompleted = (pageNumber: number) => {
+    const validPage = Math.max(1, Math.min(604, Math.floor(pageNumber) || 1));
+    const todayKey = getLocalDateKey();
+
     setKhatmaState((prev) => {
-      const set = new Set(prev.completedPages);
-      if (set.has(pageNumber)) {
-        set.delete(pageNumber);
+      const pageSet = new Set(prev.completedPages);
+      const isAlreadyCompleted = pageSet.has(validPage);
+      let todayLogCount = prev.dailyLogs[todayKey] || 0;
+      let completedKhatmas = prev.completedKhatmasCount || 0;
+      let khatmaAwarded = Boolean(prev.khatmaCompletedAwarded);
+
+      if (isAlreadyCompleted) {
+        // Uncompleting page
+        pageSet.delete(validPage);
+        todayLogCount = Math.max(0, todayLogCount - 1);
       } else {
-        set.add(pageNumber);
+        // Completing page
+        pageSet.add(validPage);
+        todayLogCount += 1;
+
+        // Check if all 604 pages are now completed
+        if (pageSet.size >= 604 && !khatmaAwarded) {
+          completedKhatmas += 1;
+          khatmaAwarded = true;
+        }
       }
-      const updated = {
+
+      const sortedPages = Array.from(pageSet).sort((a, b) => a - b);
+      const updated: KhatmaState = {
         ...prev,
-        completedPages: Array.from(set).sort((a, b) => a - b),
+        completedPages: sortedPages,
+        dailyLogs: {
+          ...prev.dailyLogs,
+          [todayKey]: todayLogCount,
+        },
+        completedKhatmasCount: completedKhatmas,
+        khatmaCompletedAwarded: khatmaAwarded,
       };
+
       saveKhatmaState(updated);
       return updated;
     });
+
     triggerHaptic(20);
   };
 
+  /**
+   * Explicit action to mark a page completed or uncompleted with explicit boolean.
+   */
+  const markPageCompleted = (pageNumber: number, completed: boolean) => {
+    const validPage = Math.max(1, Math.min(604, Math.floor(pageNumber) || 1));
+    const isCurrentlyDone = khatma.completedPages.includes(validPage);
+    if (completed && !isCurrentlyDone) {
+      togglePageCompleted(validPage);
+    } else if (!completed && isCurrentlyDone) {
+      togglePageCompleted(validPage);
+    }
+  };
+
+  /**
+   * Explicit action to mark all pages up to a given pageNumber.
+   * Adds only newly completed pages and increments dailyLogs accordingly.
+   */
   const markPagesUpTo = (pageNumber: number) => {
+    const validPage = Math.max(1, Math.min(604, Math.floor(pageNumber) || 1));
+    const todayKey = getLocalDateKey();
+
     setKhatmaState((prev) => {
-      const set = new Set(prev.completedPages);
-      for (let i = 1; i <= pageNumber; i++) {
-        set.add(i);
+      const pageSet = new Set(prev.completedPages);
+      const initialSize = pageSet.size;
+
+      for (let p = 1; p <= validPage; p++) {
+        pageSet.add(p);
       }
-      const updated = {
+
+      const addedCount = pageSet.size - initialSize;
+      const todayLogCount = (prev.dailyLogs[todayKey] || 0) + addedCount;
+
+      let completedKhatmas = prev.completedKhatmasCount || 0;
+      let khatmaAwarded = Boolean(prev.khatmaCompletedAwarded);
+
+      if (pageSet.size >= 604 && !khatmaAwarded) {
+        completedKhatmas += 1;
+        khatmaAwarded = true;
+      }
+
+      const sortedPages = Array.from(pageSet).sort((a, b) => a - b);
+      const updated: KhatmaState = {
         ...prev,
-        currentPageNumber: pageNumber,
-        completedPages: Array.from(set).sort((a, b) => a - b),
+        currentPageNumber: validPage,
+        completedPages: sortedPages,
+        dailyLogs: {
+          ...prev.dailyLogs,
+          [todayKey]: todayLogCount,
+        },
+        completedKhatmasCount: completedKhatmas,
+        khatmaCompletedAwarded: khatmaAwarded,
       };
+
       saveKhatmaState(updated);
       return updated;
     });
+
     triggerHaptic([30, 50, 30]);
   };
 
+  const isPageCompleted = (pageNumber: number): boolean => {
+    return khatma.completedPages.includes(pageNumber);
+  };
+
+  /**
+   * Reset Khatma: resets pages, sets position to 1, prevents duplicate completion counts.
+   */
   const resetKhatma = () => {
-    const newState: KhatmaState = {
-      ...DEFAULT_KHATMA_STATE,
-      completedKhatmasCount: (khatma.completedKhatmasCount || 0) + (khatma.completedPages.length >= 604 ? 1 : 0),
-      startDate: new Date().toISOString().split('T')[0],
-      dailyGoalPages: khatma.dailyGoalPages,
-      targetDays: khatma.targetDays,
-    };
-    setKhatmaState(newState);
-    saveKhatmaState(newState);
+    setKhatmaState((prev) => {
+      let completedKhatmas = prev.completedKhatmasCount || 0;
+      // If user reached 604 pages and for some reason it wasn't yet credited, credit it once
+      if (prev.completedPages.length >= 604 && !prev.khatmaCompletedAwarded) {
+        completedKhatmas += 1;
+      }
+
+      const newState: KhatmaState = {
+        ...DEFAULT_KHATMA_STATE,
+        completedPages: [],
+        currentPageNumber: 1,
+        currentSurahNumber: 1,
+        currentAyahNumber: 1,
+        startDate: getLocalDateKey(),
+        dailyGoalPages: prev.dailyGoalPages,
+        targetDays: prev.targetDays,
+        dailyLogs: prev.dailyLogs, // Preserve reading history
+        completedKhatmasCount: completedKhatmas,
+        khatmaCompletedAwarded: false,
+      };
+
+      saveKhatmaState(newState);
+      return newState;
+    });
+
+    triggerHaptic([40, 50]);
   };
 
   const addBookmark = (bm: Omit<Bookmark, 'id' | 'createdAt'>) => {
@@ -180,7 +317,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const decrementDhikr = (dhikrId: string, initialCount: number): number => {
-    const todayKey = new Date().toISOString().split('T')[0];
+    const todayKey = getLocalDateKey();
     let newCount = initialCount - 1;
     setAdhkarProgressState((prev) => {
       const currentRemaining = prev.counts[dhikrId] !== undefined ? prev.counts[dhikrId] : initialCount;
@@ -218,6 +355,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     triggerHaptic(30);
   };
 
+  const downloadQuranOffline = async (
+    onProgress?: (percent: number, currentSurah: number) => void
+  ): Promise<boolean> => {
+    const ok = await downloadAllQuranForOffline(onProgress);
+    await refreshOfflineStatus();
+    return ok;
+  };
+
   const resetAllAppData = () => {
     resetAllData();
   };
@@ -229,8 +374,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       khatma,
       updateKhatma,
       setReadingPosition,
+      markPageCompleted,
       togglePageCompleted,
       markPagesUpTo,
+      isPageCompleted,
       resetKhatma,
       bookmarks,
       addBookmark,
@@ -241,8 +388,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       resetAdhkarSection,
       resetAllAppData,
       triggerHaptic,
+      quranOfflineStatus,
+      refreshOfflineStatus,
+      downloadQuranOffline,
     }),
-    [settings, khatma, bookmarks, adhkarProgress]
+    [
+      settings,
+      khatma,
+      bookmarks,
+      adhkarProgress,
+      quranOfflineStatus,
+      refreshOfflineStatus,
+    ]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

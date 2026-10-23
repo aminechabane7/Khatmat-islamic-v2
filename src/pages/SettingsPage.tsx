@@ -11,6 +11,10 @@ import {
   Check,
   Vibrate,
   BookOpen,
+  HardDriveDownload,
+  Loader2,
+  CheckCircle,
+  Download,
 } from 'lucide-react';
 import { useAppStore } from '../context/AppContext';
 import { PWAInstallButton } from '../components/PWAInstallButton';
@@ -22,13 +26,31 @@ export const SettingsPage: React.FC = () => {
     updateSettings,
     resetAllAppData,
     triggerHaptic,
+    quranOfflineStatus,
+    downloadQuranOffline,
   } = useAppStore();
 
   const [showResetModal, setShowResetModal] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
 
   const handleFontSizeChange = (val: number) => {
     triggerHaptic(15);
     updateSettings({ arabicFontSize: val });
+  };
+
+  const handleDownloadAll = async () => {
+    setIsDownloading(true);
+    setDownloadProgress(0);
+    triggerHaptic(20);
+    try {
+      await downloadQuranOffline((p) => setDownloadProgress(p));
+      triggerHaptic([30, 40]);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
@@ -55,6 +77,58 @@ export const SettingsPage: React.FC = () => {
           يمكنك تثبيت "ختمتي" كتطبيق مستقل وسريع على نظام أندرويد أو iOS أو جهاز الكمبيوتر ليعمل دون الحاجة لمتصفح.
         </p>
         <PWAInstallButton variant="settings" />
+      </div>
+
+      {/* Offline Quran Storage Status (Priority 2 & 5) */}
+      <div className="bg-white dark:bg-[#132E27] rounded-3xl p-5 shadow-sm border border-[#E8E2D2] dark:border-[#1E443A] space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <HardDriveDownload className="w-5 h-5 text-[#D5B779]" />
+            <h2 className="text-sm font-bold text-slate-800 dark:text-[#F7F4EB]">
+              حالة التخزين بدون إنترنت (Offline Quran)
+            </h2>
+          </div>
+
+          {quranOfflineStatus.isFullyDownloaded ? (
+            <span className="flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-xl">
+              <CheckCircle className="w-4 h-4" />
+              <span>مكتمل وموثق</span>
+            </span>
+          ) : (
+            <button
+              onClick={handleDownloadAll}
+              disabled={isDownloading}
+              className="bg-[#123D32] hover:bg-[#185244] text-[#D5B779] px-3 py-1.5 rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {isDownloading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>{downloadProgress}%</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5" />
+                  <span>تحميل كل السور</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
+
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          {quranOfflineStatus.isFullyDownloaded
+            ? 'المصحف الشريف بكامل سوره الـ 114 وآياته الـ 6,236 مخزن محلياً في ذاكرة جهازك ويعمل دون اتصال بالإنترنت.'
+            : `تم تخزين ${quranOfflineStatus.downloadedSurahsCount} من أصل 114 سورة في الذاكرة المحلية.`}
+        </p>
+
+        {isDownloading && (
+          <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-l from-[#D5B779] to-[#123D32] transition-all duration-300 rounded-full"
+              style={{ width: `${downloadProgress}%` }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Theme Settings */}
@@ -177,19 +251,19 @@ export const SettingsPage: React.FC = () => {
         </div>
         <div className="text-xs text-slate-600 dark:text-slate-300 space-y-2 leading-relaxed">
           <p>
-            • <strong>نصوص القرآن الكريم:</strong> مستمدة حصراً من الرسم العثماني المعتمد برواية حفص عن عاصم، مع نظام تخزين محلي (IndexedDB) يضمن عدم توليد أي حرف أو آية عبر الذكاء الاصطناعي.
+            • <strong>نصوص القرآن الكريم:</strong> مستمدة من مشروع تنزيل (Tanzil Project) بالرسم العثماني برواية حفص عن عاصم، بمطابقة تامة مع مصحف مجمع الملك فهد (604 صفحات، 30 جزءاً، 114 سورة، 6236 آية). لا يتم توليد أي حرف أو آية بالذكاء الاصطناعي نهائياً.
           </p>
           <p>
-            • <strong>الأذكار والأدعية:</strong> جميع الأذكار مأخوذة بنصوصها وتخريجها من أصح كتب السنة (صحيح البخاري، صحيح مسلم، سنن أبي داود، وحصن المسلم للشيخ سعيد القحطاني رحمه الله).
+            • <strong>الأذكار والأدعية:</strong> جميع الأذكار مأخوذة بنصوصها وتخريجها المعتمد من صحيحي البخاري ومسلم وسنن أبي داود والترمذي والنسائي وابن ماجه وحصن المسلم، مع إيراد رقم الحديث وصحته.
           </p>
           <p>
-            • <strong>مواقيت الصلاة:</strong> محسوبة بواسطة خوارزمية adhan الفلكية المعتمدة دولياً، وفق خط العرض والطول الدقيق لمدينتك أو عبر الـ GPS.
+            • <strong>مواقيت الصلاة:</strong> محسوبة فلكياً وفق إحداثيات كل مدينة والمنطقة الزمنية المحلية الخاصة بها باستخدام مكتبة adhan.js، مع دعم زوايا الأوقاف المغربية (19°/17°) وتقويم أم القرى والهيئة العامة المصرية للمساحة ورابطة العالم الإسلامي.
           </p>
         </div>
       </div>
 
       {/* Reset Progress Section */}
-      <div className="bg-white dark:bg-[#132E27] rounded-3xl p-5 shadow-sm border border-red-200 dark:border-red-900/50 p-5 space-y-3">
+      <div className="bg-white dark:bg-[#132E27] rounded-3xl p-5 shadow-sm border border-red-200 dark:border-red-900/50 space-y-3">
         <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
           <RotateCcw className="w-4 h-4" />
           <h2 className="text-sm font-bold">إعادة تعيين البيانات</h2>

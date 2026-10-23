@@ -18,6 +18,8 @@ import {
   Loader2,
   CheckCircle,
   X,
+  HardDriveDownload,
+  CheckCircle2,
 } from 'lucide-react';
 import { ALL_SURAHS, TOTAL_SURAHS } from '../data/surahs';
 import { Ayah, SurahDetail, SurahMeta } from '../types';
@@ -31,11 +33,15 @@ export const QuranPage: React.FC = () => {
     updateSettings,
     khatma,
     setReadingPosition,
+    togglePageCompleted,
+    isPageCompleted,
     bookmarks,
     addBookmark,
     removeBookmark,
     isBookmarked,
     triggerHaptic,
+    quranOfflineStatus,
+    downloadQuranOffline,
   } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<'surahs' | 'bookmarks'>(
@@ -64,6 +70,11 @@ export const QuranPage: React.FC = () => {
   const [isCached, setIsCached] = useState(false);
   const [caching, setCaching] = useState(false);
   const [copiedAyahNum, setCopiedAyahNum] = useState<number | null>(null);
+
+  // Bulk download state
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   // Font size local control
   const fontSize = settings.arabicFontSize || 26;
@@ -123,7 +134,7 @@ export const QuranPage: React.FC = () => {
           setSurahDetail(detail);
           setLoading(false);
 
-          // Update Khatma reading position
+          // Update Khatma reading position ONLY (does NOT complete the page)
           const firstAyah = detail.ayahs[0];
           setReadingPosition(
             detail.number,
@@ -183,6 +194,24 @@ export const QuranPage: React.FC = () => {
     }
   };
 
+  const handleDownloadAllQuran = async () => {
+    setIsDownloadingAll(true);
+    setDownloadError(null);
+    setDownloadProgress(0);
+    triggerHaptic(25);
+
+    try {
+      await downloadQuranOffline((percent) => {
+        setDownloadProgress(percent);
+      });
+      triggerHaptic([40, 50, 60]);
+    } catch (err: any) {
+      setDownloadError(err.message || 'فشل تحميل المصحف الشريف للعمل دون اتصال');
+    } finally {
+      setIsDownloadingAll(false);
+    }
+  };
+
   const handleCopyAyah = (ayah: Ayah, surahName: string) => {
     const textToCopy = `﴿${ayah.text}﴾ [سورة ${surahName}: الآية ${ayah.numberInSurah}]`;
     if (navigator.clipboard) {
@@ -216,9 +245,11 @@ export const QuranPage: React.FC = () => {
     updateSettings({ arabicFontSize: newSize });
   };
 
-  // If a Surah is opened, show Reader View
+  // Reader View
   if (selectedSurahNumber && (surahDetail || loading || error)) {
     const meta = ALL_SURAHS.find((s) => s.number === selectedSurahNumber);
+    const currentPageInReader = surahDetail?.ayahs[0]?.page || meta?.pageStart || 1;
+    const isThisPageDone = isPageCompleted(currentPageInReader);
 
     return (
       <div className="space-y-4 pb-12 animate-in fade-in duration-200">
@@ -238,11 +269,11 @@ export const QuranPage: React.FC = () => {
               سورة {meta?.name}
             </h2>
             <p className="text-[10px] text-slate-500 dark:text-slate-400">
-              الجزء {meta?.juzStart} • صفحة {meta?.pageStart}
+              الجزء {meta?.juzStart} • صـ {currentPageInReader}
             </p>
           </div>
 
-          {/* Font Size & Cache controls */}
+          {/* Font Controls */}
           <div className="flex items-center gap-1">
             <button
               onClick={() => handleSetFontSize(-2)}
@@ -267,7 +298,7 @@ export const QuranPage: React.FC = () => {
           <div className="bg-white dark:bg-[#132E27] rounded-3xl p-12 text-center shadow-sm border border-[#E8E2D2] dark:border-[#1E443A] space-y-3">
             <Loader2 className="w-8 h-8 text-[#D5B779] animate-spin mx-auto" />
             <p className="text-sm font-semibold text-slate-700 dark:text-[#F7F4EB]">
-              جاري تحميل آيات سورة {meta?.name} من المصحف الموثق...
+              جاري تحميل آيات سورة {meta?.name} من المصحف المعتمد...
             </p>
             <p className="text-xs text-slate-400">
               يتم حفظ السورة تلقائياً للاستخدام الدائم دون إنترنت
@@ -297,7 +328,7 @@ export const QuranPage: React.FC = () => {
         {/* Loaded Surah Content */}
         {surahDetail && (
           <div className="space-y-4">
-            {/* Surah Header Card */}
+            {/* Surah Header Card with Explicit Page Completion Toggle */}
             <div className="bg-gradient-to-br from-[#123D32] to-[#185244] text-[#F7F4EB] rounded-3xl p-6 shadow-md border border-[#D5B779]/30 text-center relative overflow-hidden">
               <div className="relative z-10 space-y-2">
                 <div className="inline-block px-3 py-1 rounded-full bg-[#D5B779]/20 text-[#D5B779] text-xs font-semibold">
@@ -310,25 +341,38 @@ export const QuranPage: React.FC = () => {
                   {surahDetail.englishName} ({surahDetail.englishNameTranslation})
                 </p>
 
-                {/* Offline Cache Status Tag */}
-                <div className="pt-2 flex items-center justify-center gap-2">
+                {/* Explicit Page Completion Action Bar (Priority 1) */}
+                <div className="pt-3 flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    onClick={() => togglePageCompleted(currentPageInReader)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${
+                      isThisPageDone
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-white/15 hover:bg-white/25 text-[#F7F4EB] border border-white/20'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-[#D5B779]" />
+                    <span>
+                      {isThisPageDone
+                        ? `صفحة ${currentPageInReader} محددة كمقروءة ✓`
+                        : `تحديد صفحة ${currentPageInReader} كمقروءة في الختمة`}
+                    </span>
+                  </button>
+
+                  {/* Cache tag */}
                   {isCached ? (
                     <span className="inline-flex items-center gap-1 text-[11px] bg-emerald-900/60 text-emerald-200 px-2.5 py-1 rounded-lg border border-emerald-500/30">
                       <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                      محفوظة بالكامل دون إنترنت
+                      محفوظة دون إنترنت
                     </span>
                   ) : (
                     <button
                       onClick={handlePrecache}
                       disabled={caching}
-                      className="inline-flex items-center gap-1.5 text-[11px] bg-[#D5B779] text-[#123D32] px-3 py-1 rounded-lg font-bold shadow hover:bg-[#F3E5AB] transition disabled:opacity-50"
+                      className="inline-flex items-center gap-1 text-[11px] bg-[#D5B779] text-[#123D32] px-2.5 py-1 rounded-lg font-bold shadow hover:bg-[#F3E5AB] transition"
                     >
-                      {caching ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Download className="w-3.5 h-3.5" />
-                      )}
-                      حفظ السورة للعمل دون إنترنت
+                      {caching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                      حفظ السورة
                     </button>
                   )}
                 </div>
@@ -360,19 +404,17 @@ export const QuranPage: React.FC = () => {
                         : 'bg-transparent border-transparent hover:bg-slate-50 dark:hover:bg-[#1c4d40]/40'
                     }`}
                   >
-                    {/* Verse Text with Ornate Golden Ayah End Marker */}
                     <div className="flex flex-col gap-3">
                       <p
                         className="font-quran leading-[2.4] text-slate-900 dark:text-[#F7F4EB] text-justify selection:bg-[#D5B779]/30"
                         style={{ fontSize: `${fontSize}px` }}
                       >
                         {ayah.text}{' '}
-                        <span className="inline-flex items-center justify-center w-7 h-7 mx-1 text-xs font-bold text-[#123D32] dark:text-[#123D32] bg-[#D5B779] rounded-full align-middle shadow-xs">
+                        <span className="inline-flex items-center justify-center w-7 h-7 mx-1 text-xs font-bold text-[#123D32] bg-[#D5B779] rounded-full align-middle shadow-xs">
                           {ayah.numberInSurah}
                         </span>
                       </p>
 
-                      {/* Verse Action Bar */}
                       <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-[#1E443A]/60 text-xs">
                         <div className="flex items-center gap-2">
                           {/* Bookmark */}
@@ -388,7 +430,7 @@ export const QuranPage: React.FC = () => {
                             <span>{bookmarked ? 'محفوظة' : 'حفظ'}</span>
                           </button>
 
-                          {/* Set reading mark */}
+                          {/* Set reading mark ONLY (does NOT mark completed) */}
                           <button
                             onClick={() => {
                               triggerHaptic(20);
@@ -405,7 +447,7 @@ export const QuranPage: React.FC = () => {
                             }`}
                           >
                             <Check className="w-3.5 h-3.5" />
-                            <span>{isCurrentRead ? 'موضع القراءة الحالي' : 'تحديد كموضع قراءة'}</span>
+                            <span>{isCurrentRead ? 'موضع القراءة الحالي' : 'موقفي هنا'}</span>
                           </button>
                         </div>
 
@@ -462,22 +504,90 @@ export const QuranPage: React.FC = () => {
     );
   }
 
-  // Otherwise, show Surahs Index / Bookmarks
+  // Index / Bookmarks View
   return (
     <div className="space-y-4 pb-12 animate-in fade-in duration-200">
+      {/* Complete Quran Offline Download Manager Card */}
+      <div className="bg-white dark:bg-[#132E27] rounded-3xl p-5 shadow-sm border border-[#E8E2D2] dark:border-[#1E443A] space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-[#123D32]/10 dark:bg-[#D5B779]/20 text-[#123D32] dark:text-[#D5B779]">
+              <HardDriveDownload className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-800 dark:text-[#F7F4EB]">
+                التخزين المحلي للمصحف الشريف (114 سورة)
+              </h2>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                {quranOfflineStatus.isFullyDownloaded
+                  ? 'تم تحميل وتدقيق المصحف كاملاً (114 سورة - 6236 آية) للعمل دون إنترنت'
+                  : `متاح محلياً: ${quranOfflineStatus.downloadedSurahsCount} من 114 سورة (${quranOfflineStatus.downloadedAyahsCount} آية)`}
+              </p>
+            </div>
+          </div>
+
+          {!quranOfflineStatus.isFullyDownloaded && (
+            <button
+              onClick={handleDownloadAllQuran}
+              disabled={isDownloadingAll}
+              className="bg-[#123D32] hover:bg-[#185244] text-[#D5B779] px-3.5 py-1.5 rounded-xl text-xs font-bold shadow transition flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {isDownloadingAll ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>{downloadProgress}%</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5" />
+                  <span>تحميل الكل الآن</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {quranOfflineStatus.isFullyDownloaded && (
+            <span className="flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-xl">
+              <CheckCircle className="w-4 h-4" />
+              <span>جاهز بدون إنترنت</span>
+            </span>
+          )}
+        </div>
+
+        {/* Progress bar during download */}
+        {isDownloadingAll && (
+          <div className="space-y-1">
+            <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-l from-[#D5B779] to-[#123D32] transition-all duration-300 rounded-full"
+                style={{ width: `${downloadProgress}%` }}
+              />
+            </div>
+            <p className="text-[10px] text-slate-400 text-center">
+              جاري فحص وتخزين سور القرآن الكريم في الذاكرة المحلية ({downloadProgress}%)...
+            </p>
+          </div>
+        )}
+
+        {downloadError && (
+          <p className="text-xs text-red-500 bg-red-50 dark:bg-red-950/30 p-2.5 rounded-xl">
+            {downloadError}
+          </p>
+        )}
+      </div>
+
       {/* Header & Tabs */}
       <div className="bg-white dark:bg-[#132E27] rounded-3xl p-5 shadow-sm border border-[#E8E2D2] dark:border-[#1E443A] space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-slate-800 dark:text-[#F7F4EB]">
-              القرآن الكريم
+              فهرس القرآن الكريم
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              114 سورة بالرسم العثماني المعتمد
+              114 سورة موثقة بالرسم العثماني
             </p>
           </div>
 
-          {/* Quick Continue Button if last reading position is saved */}
           <button
             onClick={() => handleSelectSurah(khatma.currentSurahNumber, khatma.currentAyahNumber)}
             className="flex items-center gap-1.5 bg-[#123D32] hover:bg-[#185244] text-[#D5B779] px-3 py-1.5 rounded-xl text-xs font-bold shadow transition"
@@ -522,7 +632,7 @@ export const QuranPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Search & Filter Bar (Only when on Surahs tab) */}
+        {/* Search & Filter Bar */}
         {activeTab === 'surahs' && (
           <div className="space-y-2.5">
             <div className="relative">
@@ -582,7 +692,7 @@ export const QuranPage: React.FC = () => {
         )}
       </div>
 
-      {/* Surahs List View */}
+      {/* Surahs List */}
       {activeTab === 'surahs' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {filteredSurahs.map((surah) => {
@@ -598,7 +708,6 @@ export const QuranPage: React.FC = () => {
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  {/* Surah Number Badge with 8-point motif */}
                   <div className="w-10 h-10 rounded-xl bg-[#123D32]/10 dark:bg-[#0C1E19] text-[#123D32] dark:text-[#D5B779] flex items-center justify-center font-bold text-sm shrink-0 border border-[#D5B779]/30 font-mono">
                     {surah.number}
                   </div>
@@ -610,7 +719,7 @@ export const QuranPage: React.FC = () => {
                       </h3>
                       {isCurrent && (
                         <span className="text-[10px] bg-[#D5B779] text-[#123D32] font-bold px-1.5 py-0.2 rounded-md">
-                          موقفك الحالي
+                          موقفك
                         </span>
                       )}
                     </div>
@@ -641,7 +750,7 @@ export const QuranPage: React.FC = () => {
         </div>
       )}
 
-      {/* Bookmarks List View */}
+      {/* Bookmarks List */}
       {activeTab === 'bookmarks' && (
         <div className="space-y-3">
           {bookmarks.map((bm) => (
@@ -658,7 +767,7 @@ export const QuranPage: React.FC = () => {
                     سورة {bm.surahName} • آية {bm.ayahNumber}
                   </span>
                   <span className="text-[10px] text-slate-400">
-                    صفحة {bm.pageNumber}
+                    صـ {bm.pageNumber}
                   </span>
                 </div>
 
